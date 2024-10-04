@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Luckiest Guy', cursive;
+            background-color: #181818;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        .cart {
+            width: 30%;
+            float: left;
+            padding: 10px;
+            background-color: #242424;
+            border-right: 2px solid #444;
+            border-radius: 8px;
+        }
+        .cart table {
+            width: 100%;
+            margin-top: 20px;
+            color: #ddd;
+        }
+        .menu {
+            width: 65%;
+            float: right;
+            padding: 10px;
+        }
+        .menu-item {
+            display: inline-block;
+            width: 140px;
+            margin: 10px;
+            text-align: center;
+            background-color: #242424;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            opacity: 0; /* Cache les éléments par défaut */
+            transform: translateY(20px); /* Position de départ */
+            animation: fadeIn 0.5s forwards; /* Animation d'apparition */
+            animation-delay: calc(0.1s * var(--i)); /* Délai d'animation pour chaque élément */
+        }
+        @keyframes fadeIn {
+            to {
+                opacity: 1; /* Fait apparaître l'élément */
+                transform: translateY(0); /* Retourne à la position normale */
+            }
+        }
+        .menu-item img {
+            width: 100px;
+            height: 100px;
+            border-radius: 8px;
+        }
+        .menu-item p {
+            margin: 10px 0;
+        }
+        .menu-item button,
+        .export-btn,
+        .clear-btn {
+            background-color: #0a84ff;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 14px;
+            border-radius: 20px; /* Bouton arrondi */
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s; /* Animation sur le survol */
+        }
+        .menu-item button:hover,
+        .export-btn:hover,
+        .clear-btn:hover {
+            background-color: #0056b3; /* Change la couleur de fond */
+            transform: scale(1.05); /* Légère augmentation de la taille */
+        }
+        table {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+        .total {
+            font-weight: bold;
+        }
+        .remove-btn {
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 20px; /* Rounded button */
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.3s; /* Animation sur le survol */
+        }
+        .remove-btn:hover {
+            background-color: darkred; /* Change la couleur de fond */
+        }
+        .cart-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #bbb;
+        }
+        /* Modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            overflow: auto; /* Enable scroll if needed */
+            background-color: rgb(0, 0, 0); /* Fallback color */
+            background-color: rgba(0, 0, 0, 0.4); /* Black w/ opacity */
+        }
+        .modal-content {
+            background-color: #242424;
+            margin: 15% auto; /* 15% du haut et centré */
+            padding: 20px;
+            border: 1px solid #888;
+            width: 50%; /* Peut être plus ou moins, selon la taille de l'écran */
+            border-radius: 8px; /* Modal arrondie */
+            opacity: 0; /* Cache la modal par défaut */
+            transform: translateY(-50px); /* Position de départ */
+            animation: modalFadeIn 0.5s forwards; /* Animation d'apparition */
+        }
+        @keyframes modalFadeIn {
+            to {
+                opacity: 1; /* Fait apparaître la modal */
+                transform: translateY(0); /* Retourne à la position normale */
+            }
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .close:hover,
+        .close:focus {
+            color: white;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .submenu-item {
+            margin-bottom: 5px;
+        }
+        .submenu-item button {
+            background-color: #0a84ff;
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            font-size: 12px;
+            border-radius: 20px; /* Rounded button */
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.3s; /* Animation sur le survol */
+        }
+        .submenu-item button:hover {
+            background-color: #0056b3; /* Change la couleur de fond */
+            transform: scale(1.05); /* Légère augmentation de la taille */
+        }
+    </style>
+    <script>
+        let cart = [];
+
+        function addToCart(item, price) {
+            const cartItem = { item, price };
+            cart.push(cartItem);
+            updateCart();
+        }
+
+        function removeFromCart(index) {
+            cart.splice(index, 1);
+            updateCart();
+        }
+
+        function clearCart() {
+            cart = [];
+            updateCart();
+        }
+
+        function updateCart() {
+            let cartTable = document.getElementById("cart-table");
+            cartTable.innerHTML = "";
+            let total = 0;
+            cart.forEach((entry, index) => {
+                total += entry.price;
+                cartTable.innerHTML += `
+            <tr>
+              <td>${entry.item}</td>
+              <td>$${entry.price}</td>
+              <td><button class="remove-btn" onclick="removeFromCart(${index})">🗑️</button></td>
+            </tr>`;
+            });
+            document.getElementById("total").innerText = total;
+        }
+      let total = 0;
+      function openModal(id) {
+          document.getElementById(id).style.display = "block";
+      }
+      function closeModal(id) {
+          document.getElementById(id).style.display = "none";
+      }
+
+  
+    // Charger Google Identity Services (GIS) pour gérer l'authentification OAuth
+    let tokenClient;
+let gapiInitialized = false;  // Variable pour suivre si l'initialisation est terminée
+
+// Définir une fonction qui sera appelée lorsque le script GAPI est chargé
+function gapiLoaded() {
+    console.log("GAPI script loaded, now initializing...");
+    initGAPI();  // Appelle la fonction d'initialisation ici
+}
+
+function initGAPI() {
+    gapi.load('client', () => {
+        gapi.client.init({
+            apiKey: 'AIzaSyCfCcDgZlepALlwinxOdGHO6HWY3WNXvVU',
+            discoveryDocs: ["https://sheets.googleapis.com/$discovery/rest?version=v4"]
+        }).then(() => {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: '696964748726-bg5hqrjdjga8qlf2oopuvhibs1q626ja.apps.googleusercontent.com',
+                scope: 'https://www.googleapis.com/auth/spreadsheets',
+                callback: '' // Gère le callback de la réponse
+            });
+
+            gapiInitialized = true;  // Indique que l'initialisation est terminée
+            console.log("Google API initialized successfully");
+        }).catch((err) => {
+            console.error('Error initializing GAPI client', err);
+        });
+    });
+}
+
+// Authentification via Google Identity Services
+function authenticate() {
+    if (!gapiInitialized) {
+        console.error('GAPI client not initialized yet');
+        return;
+    }
+    
+    if (!tokenClient) {
+        console.error('Token client is not initialized yet');
+        return;
+    }
+
+    tokenClient.callback = (response) => {
+        if (response.error) {
+            console.error('Error signing in', response);
+            return;
+        }
+        console.log('Sign-in successful');
+        addToSheet();  // Appelle la fonction pour ajouter les données après authentification réussie
+    };
+
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+// Ajouter des données dans Google Sheets après authentification
+function addToSheet() {
+    const values = [
+        ["Nom", "Prix"],
+        ["Produit A", "200"],
+        ["Produit B", "300"],
+    ];
+
+    gapi.client.sheets.spreadsheets.values.append({
+        spreadsheetId: '1Y3gHYUl5MVJ7Fy-d3fhHw0aLALQMv5kgI3eF0T4OdJg',
+        range: 'Sheet1!A1',
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+            values: values
+        }
+    }).then((response) => {
+        console.log('Données ajoutées à Google Sheets', response);
+    }).catch((error) => {
+        console.error('Erreur lors de l’ajout à Google Sheets', error);
+    });
+}
+
+// Exécuter l'ajout de données après authentification
+function exportDataToSheet() {
+    authenticate();
+}
+
+// Charger l'API Google Sheets et GIS quand la page est chargée
+window.onload = function () {
+    setTimeout(() => {
+        if (typeof gapi !== 'undefined') {
+            gapiLoaded();  // Appelle la fonction de chargement de GAPI
+        } else {
+            console.error('GAPI script did not load correctly');
+        }
+    }, 1000);  // Patiente 1 seconde pour vérifier si GAPI est chargé
+};
+
+</script>
+</head>
+<body>
+      <div id="debugMessages" style="background-color: #333; color: white; padding: 10px; margin-top: 20px;">
+        <strong>Debug:</strong> <span id="debugContent">Aucun message pour l'instant...</span>
+      </div>
+      <div class="cart">
+      <h2>Votre Panier</h2>
+  
+      <table id="cart-table">
+          <!-- Cart items go here -->
+      </table>
+      <h2>Total: $<span id="total">0</span></h2>
+      <!-- Code-barres ajouté ici -->
+      <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291440864148586536/vecteezy_barcode_1199360.png?ex=67001b87&is=66feca07&hm=4bc5b07e2dcc78945ed60572e42657dbd2ea50180204f9f84f0e2dcfebd7f964&" 
+          alt="Code-barres" 
+          style="display: block; margin: 10px auto; width: 200px; height: auto;"> <!-- Ajustez la largeur ici -->
+      <!-- Nouveau conteneur pour les boutons -->
+      <div class="button-container" style="text-align: center; margin: 10px 0;">
+          <button class="export-btn" onclick="exportDataToSheet()" style="padding: 15px 20px; font-size: 18px; border-radius: 5px;">💳</button>
+          <button class="clear-btn" onclick="clearCart()" style="padding: 15px 20px; font-size: 18px; border-radius: 5px;">🗑️</button>
+      </div>
+      <div class="cart-footer">Merci de votre fidélité</div>
+      <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291439516137291796/z9peK8m9BFcNwAAAABJRU5ErkJggg.png?ex=67001a46&is=66fec8c6&hm=8e0de9d5b6cb17fa5944ffa6cce290b446f689940adf55a1382cd5e28aaabf10&" 
+          alt="Code-barres" 
+          style="display: block; margin: 10px auto; width: 200px; height: auto;"> <!-- Ajustez la largeur ici -->
+    </div>
+
+    <div class="menu">
+        <h2>Menu</h2>
+        <div class="menu-item">
+            <img src="https://via.placeholder.com/100" alt="Menu Simple">
+            <p>Menu Simple</p>
+            <p>$230</p>
+            <button onclick="addToCart('Menu Simple', 230)">Ajouter</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291412872135573555/MSM.png?ex=67000176&is=66feaff6&hm=6f2f938f4d94db3ed6852b01e1e8310cb96e6a6915393b749e13c4a4b5d23edb&" alt="Glaces">
+            <p>Glaces</p>
+            <p>$100</p>
+            <button onclick="openModal('glaces')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291443136316309575/Gemini_Generated_Image_zda0pfzda0pfzda0-removebg-preview.png?ex=67001da5&is=66fecc25&hm=f3048ec390f23061ac89760d3d58efeb5d2db17dd7331231d7b78f7e061ca350&" alt="Cocktails">
+            <p>Cocktails</p>
+            <p>$100</p>
+            <button onclick="openModal('cocktails')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291435912001097868/ceIEnDlzhrKbdhAuLUUEiAARIAK7Q4DEzO5wpkchAkSACBABIkAEpkSAxMyUwNKyRIAIEAEiQASIwO4QIDGzO5zpUYgAESACRIAIEIEpESAxMyWwtCwRIAJEgAgQASKwOwRIzOwOZ3oUIkAEiAARIAJEYEoESMxMCSwtSwSIABEgAkSACOwOARIzu8OZHoUIEAEiQASIABGYEgESM1MCS8sSASJABIgAESACu0OAxMzucKZHIQJEgAgQASJABKZE4P8ADlMUbZU9ZTYAAAAASUVORK5CYII.png?ex=670016eb&is=66fec56b&hm=bd9ca105fe106f892752ae546ed612058feafbf24b5a050797eea83c1e2d1eec&" alt="Bouquets de fleurs">
+            <p>Bouquets</p>
+            <p>$100</p>
+            <button onclick="openModal('bouquetsdefleurs')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291442505602306058/Gemini_Generated_Image_hg48udhg48udhg48-removebg-preview.png?ex=67001d0f&is=66fecb8f&hm=0d9e397b5fadad0fce0b4e185596adc51ed25b96d55ddb61576ee237d19e15ff&" alt="Boissons chaudes">
+            <p>Boissons chaudes</p>
+            <p>$100</p>
+            <button onclick="openModal('boissonschaudes')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291443453271605259/Gemini_Generated_Image_7v54417v54417v54-removebg-preview.png?ex=67001df1&is=66fecc71&hm=a22cbc51b62b65c64c5c155bbe581b71811c42e0857aa53a9c435c7671cd2e2c&" alt="Boissons froides">
+            <p>Boissons froides</p>
+            <p>$100</p>
+            <button onclick="openModal('boissonsfroides')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291416806459838524/l1jgmNHDRBSHggQIECgJODoldbQhQABAgQIECBwFHD0jpiiCBAgQIAAAQIlAUevtIYuBAgQIECAAIGjgKN3xBRFgAABAgQIECgJOHqlNXQhQIAAAQIECBwFHL0jpigCBAgQIECAQEnA0SutoQsBAgQIECBA4Cjg6B0xRREgQIAAAQIESgKOXmkNXQgQIECAAAECRwFH74gpigABAgQIECBQEnD0SmvoQoAAAQIECBA4Cjh6R0xRBAgQIECAAIGSgKNXWkMXAgQIECBAgMBRwNE7YooiQIAAAQIECJQEHL3SGroQIECAAAECBI4Cjt4RUxQBAgQIECBAoCTg6JXW0IUAAQIECBAgcBRw9I6YoggQIECAAAECJQFHr7SGLgQIECBAgACBo4Cjd8QURYAAAQIECBAoCTh6pTV0IUCAAAECBAgcBRy9I6YoAgQIECBAgEBJwNErraELAQIECBAgQOAo4OgdMUURIECAAAECBEoCjl5pDV0IECBAgAABA..png?ex=67000520&is=66feb3a0&hm=537d3d4229264e4d4a7c1bdfe157f456012f419e0fc4f634ad6c1b3f25ca0157&" alt="Pâtisseries">
+            <p>Pâtisseries</p>
+            <p>$100</p>
+            <button onclick="openModal('pâtisseries')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291435073962508318/SAxZOImAQEAgIBAQCAh8fQgEwvT1YR3eKSAQEAgIBAQCAgGBgEBAICAQEDhmCPwXwLyo4OVwVJMAAAAASUVORK5CYII.png?ex=67001623&is=66fec4a3&hm=ddbcd365ccd43ad1663afaef866bfd5dab38ebd7ade46988956c0af3e6afbaa1&" alt="Robes">
+            <p>Robes</p>
+            <p>$100</p>
+            <button onclick="openModal('robes')">Voir Plus</button>
+        </div>
+        <div class="menu-item">
+            <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291438055902674964/RHFVZCrzEAAAAABJRU5ErkJggg.png?ex=670018ea&is=66fec76a&hm=fe1eb81e16af073acaa5e8f6b2dc0fb787c971d1a140a5f4600caf529b84f053&" alt="Bagues">
+            <p>Bagues</p>
+            <p>$100</p>
+            <button onclick="openModal('bagues')">Voir Plus</button>
+        </div>
+    </div>
+
+    <!-- Glaces -->
+    <div id="glaces" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('glaces')">&times;</span>
+            <h2>Glaces</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291413485317787792/hzUhznzEowAAAAASUVORK5CYII.png?ex=67000208&is=66feb088&hm=c69835c26bf2cbfd59ef6a9ff5ea6c2ce8f259af1d3dcb6234d447ffdbd877ba&" alt="Vanille" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Vanille - $100</p>
+                <button onclick="addToCart('Vanille', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291412654283296870/nGxAICAQEAgIBgYDAthAIJGlbMIWNAgIBgYBAQCAgEBDYaQgEkrTTrng434BAQCAgEBAICAQEtoVAIEnbgilsFBAICAQEAgIBgYDATkMgkKSddsXDQYEAgIBgYBAQCAgsC0EAknaFkxho4BAQCAgEBAICAQEdhoCgSTttCsezjcgEBAICAQEAgIBgW0hEEjStmAKGwUEAgIBgYBAQCAgsNMQH8BHXh0TUGo0AAAAAASUVORK5CYII.png?ex=67000142&is=66feafc2&hm=1a89e36401ecce736cd864ee8100753b931df724f5e14fa2021a52c93b7804ec&" alt="Fraise" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Fraise - $100</p>
+                <button onclick="addToCart('Fraise', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291412653884969102/qR7bx8Qwr30AAAAASUVORK5CYII.png?ex=67000141&is=66feafc1&hm=2f57af1776fbc996e60c3239410779412ebb8b60e709ececf99d5feb3f954048&" alt="Chocolat" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Chocolat - $100</p>
+                <button onclick="addToCart('Chocolat', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291412654761709750/BzRa8djysZ3gAAAAAElFTkSuQmCC.png?ex=67000142&is=66feafc2&hm=779a69307e024922ce00ede37e3c764616e24e18d50713cdb644494db2f31922&" alt="Kinder Bueno" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Kinder Bueno - $100</p>
+                <button onclick="addToCart('Kinder bueno', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291423646358966314/825blL7olzpXNp4lyaO5ce8XNZKevnemXZfhkCVyBg5MguEUPAEDAEDAFDwBAwBAYIGDmyy8EQMAQMAUPAEDAEDAEjR3YNGAKGgCFgCBgChoAh8HYETDmyK8MQMAQMAUPAEDAEDAFTjuwaMAQMAUPAEDAEDAFDwJQjuwYMAUPAEDAEDAFDwBC4EgErq10JkW1gCBgChoAhYAgYAtcJASNH1ls27EaAoaAIWAIGAKGwJUIGDm6EiLbwBAwBAwBQ8AQMASuEwJGjq7T2bZjNQQMAUPAEDAEDIErETBydCVEtoEhYAgYAoaAIWAIXCcEjBxdp7Ntx2oIGAKGgCFgCBgCVyJg5OhKiGwDQ8AQMAQMAUPAELhOCBg5uk5n247VEDAEDAFDwBAwBK5EwMjRlRDZBoaAIWAIGAKGgCFwnRAwcnSdzrYdqyFgCBgChoAhYAhciYCRoyshsg0MAUPAEDAEDAFD4DohYOToOp1tO1ZDwBAwBAwBQ8AQuBIBI0d.png?ex=67000b7e&is=66feb9fe&hm=fc25da7a183863932b4331b1a682ef503ae90326ac2c44c74d181c90ef0355d1&" alt="Café" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Café - $100</p>
+                <button onclick="addToCart('Café', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291412872135573555/MSM.png?ex=67000176&is=66feaff6&hm=6f2f938f4d94db3ed6852b01e1e8310cb96e6a6915393b749e13c4a4b5d23edb&" alt="M&Ms" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>M&Ms - $100</p>
+                <button onclick="addToCart('M&Ms', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Cocktails -->
+    <div id="cocktails" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('cocktails')">&times;</span>
+            <h2>Cocktails</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291436726262300672/xWgtqn6anCHwAAAABJRU5ErkJggg.png?ex=670017ad&is=66fec62d&hm=07525bb6454c13eb8d2afb6bd18d2dba90654affe9f0d5f9c575537943a2daf4&" alt="Cocktail 1" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Cocktail 1 - $100</p>
+                <button onclick="addToCart('Cocktail 1', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291436820894187581/AADA7fPOHSx9WYFiBYQXu5Ar8v94MvjyEP3RAAAAAElFTkSuQmCC.png?ex=670017c3&is=66fec643&hm=7420ffa30ea0fbd2cced416de4ea811bdfa6333217e4c85c4dcd7cbd2b6221ea&" alt="Cocktail 2" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Cocktail 2 - $100</p>
+                <button onclick="addToCart('Cocktail 2', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291436613393711216/BREtFVqhvJrpAAAAAElFTkSuQmCC.png?ex=67001792&is=66fec612&hm=62b8fe16020906f04313f1f77aff01d11d7c5572ebc54bf2396f2de116549012&" alt="Cocktail 3" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Cocktail 3 - $100</p>
+                <button onclick="addToCart('Cocktail 3', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bouquets de fleurs -->
+    <div id="bouquetsdefleurs" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('bouquetsdefleurs')">&times;</span>
+            <h2>Bouquets de fleurs</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291419159636344853/B0TU7ahUJifFAAAAAElFTkSuQmCC.png?ex=67000751&is=66feb5d1&hm=910785bbe4db4eb2745b9244384bffc7c74b0f5b22f3ee50226825a136ddf6e8&" alt="Bouquet 1" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bouquet 1 - $100</p>
+                <button onclick="addToCart('Bouquet 1', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291419548280557588/5LvNjDOxGewHF0Av8fyq8K4ZGQbacAAAAASUVORK5CYII.png?ex=670007ad&is=66feb62d&hm=1b2e313d2c26fa49ef9c7dc532397e8b8b6e723734d81643812f9feeb8598262&" alt="Bouquet 2" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bouquet 2 - $100</p>
+                <button onclick="addToCart('Bouquet 2', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291419819031269416/9Dzfsz75TEIIDBCAQLRCAeNLiOAAAIIIIDAsAIEomE9aQ0BBBBAAAEERihAIBrhoNFlBBBAAAEEEBhWgEA0rCetIYAAAggggMAIBQhEIxw0uowAAggggAACwwoQiIb1pDUEEEAAAQQQGKEAgWiEg0aXEUAAAQQQQGBYAQLRsJ60hgACCCCAAAIjFCAQjXDQ6DICCCCAAAIIDCtAIBrWk9YQQAABBBBAYIQCBKIRDhpdRgABBBBAAIFhBQhEw3rSGgIIIIAAAgiMUIBANMJBo8sIIIAAAgggMKwAgWhYT1pDAAEEEEAAgREKEIhGOGh0GQEEEEAAAQSGFSAQDetJawgggAACCCAwQgEC0QgHjS4jgAACCCCAwLACBKJhPWkNAQQQQAABBEYoQCAa4aDRZQQQQAABBBAYVoBANKwnrSGAAAIIIIDACAUIRCMcNLqMAAIIIIAAAsMKEIiG9aQ1BBBAAAEEEBihAIFohINGlxFAAAEEEEBgWAEC0bCet..png?ex=670007ee&is=66feb66e&hm=acdc7329382a9d3ec71f765fbbfe663c03f798156b6220a42d51e5b715a29bf0&" alt="Bouquet 3" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bouquet 3 - $100</p>
+                <button onclick="addToCart('Bouquet 3', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boissons chaudes -->
+    <div id="boissonschaudes" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('boissonschaudes')">&times;</span>
+            <h2>Boissons chaudes</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291421458182049934/cappuccino.png?ex=67000975&is=66feb7f5&hm=a5acd5dd8f8d1be8fa474f6f8d9114719001228db28d55456ecae9b4e7e73fa6&" alt="Cappuccino" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Cappuccino - $100</p>
+                <button onclick="addToCart('Cappuccino', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291421585428709376/y9NbVor2TcbFwAAAABJRU5ErkJggg.png?ex=67000993&is=66feb813&hm=8463e159b16c32c6e9db2dfad00dad14fb817c812a09d9cc3e2be5e8cc14c2f8&" alt="Café glacé" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Café glacé - $100</p>
+                <button onclick="addToCart('Café glacé', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291421780724027432/dDrOGn7Cl5LEvW41QLrJEF3mZhWyNz1KFWC1QLVAtUC1QLVAusowUqIFrHu17HXC1QLVAtUC1QLVAtMLBABUR1QlQLVAtUC1QLVAtUC6y9BSogWvspUA1QLVAtUC1QLVAtUC1QAVGdA9UC1QLVAtUC1QLVAmtvgQqI1n4KVANUC1QLVAtUC1QLVAtUQFTnQLVAtUC1QLVAtUC1wNpboAKitZ8C1QDVAtUC1QLVAtUC1QIVENU5UC1QLVAtUC1QLVAtsPYWqIBo7adANUC1QLVAtUC1QLVAtUAFRHUOVAtUC1QLVAtUC1QLrL0FKiBaylQDVAtUC1QLVAtUC1QLVABUZ0D1QLVAtUC1QLVAtUCa2BCojWfgpUA1QLVAtUC1QLVAtUC1RAVOdAtUC1QLVAtUC1QLXA2lugAqK1nwLVANUC1QLVAtUC1QLVAv8fkfeelBQ73IgAAAAASUVORK5CYII.png?ex=670009c1&is=66feb841&hm=7324b78b16fb5b54182fc6a31fb6366733fd59db558744d89d73b0b587108a6b&" alt="Chocolat chaud" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Chocolat chaud - $100</p>
+                <button onclick="addToCart('Chocolat chaud', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Boissons froides -->
+    <div id="boissonsfroides" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('boissonsfroides')">&times;</span>
+            <h2>Boissons froides</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291436619337044020/Gemini_Generated_Image_yo2l1uyo2l1uyo2l-removebg-preview.png?ex=67001793&is=66fec613&hm=30c99d2ef4ed90be5222e3943790a0ae4077aa89395b52a32c4cc1d4894f4c22&" alt="Jus orange" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Jus d'orange - $100</p>
+                <button onclick="addToCart('Jus orange', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291432442426818632/W1k5eOHGCzSG34iXxNf43ARZIvDKYABNgAkzgVhMIruTTFlwEAC2toRvHaVdK0dPa5UrFPtXxWt7N3mq1Bm8eTyFbfFJfCXwcARZIvD6YABNgAkzgdhAIomlxEdT6Oqg5AMj1gqvmLprlZahvxw3xNZnA9QRYIPF6YAJMgAkwASbABJjAfxBggcSID9vMAAAAkklEQVRLggkwASbABJgAE2ACLJB4DTABJsAEmAATYAJM4OMJcAWJVwgTYAJMgAkwASbABLiCxGuACTABJsAEmAATYAJcQeI1wASYABNgAkyACTCBmyLALbabwsVfZgJMgAkwASbABHYCARZIOEt8zMyASbABJgAE2ACN0WABdJN4eIvMwEmwASYABNgAjuBwL8Bdj2aVlp1HzcAAAAASUVORK5CYII.png?ex=670013af&is=66fec22f&hm=b765d80b51dc1457b5ca5797d004f9734fbe332223e210d6507ace9550ab9d65&" alt="Jus de pomme" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Jus de pomme - $100</p>
+                <button onclick="addToCart('Jus de pomme', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pâtisseries -->
+    <div id="pâtisseries" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('pâtisseries')">&times;</span>
+            <h2>Pâtisseries</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291416806459838524/l1jgmNHDRBSHggQIECgJODoldbQhQABAgQIECBwFHD0jpiiCBAgQIAAAQIlAUevtIYuBAgQIECAAIGjgKN3xBRFgAABAgQIECgJOHqlNXQhQIAAAQIECBwFHL0jpigCBAgQIECAQEnA0SutoQsBAgQIECBA4Cjg6B0xRREgQIAAAQIESgKOXmkNXQgQIECAAAECRwFH74gpigABAgQIECBQEnD0SmvoQoAAAQIECBA4Cjh6R0xRBAgQIECAAIGSgKNXWkMXAgQIECBAgMBRwNE7YooiQIAAAQIECJQEHL3SGroQIECAAAECBI4Cjt4RUxQBAgQIECBAoCTg6JXW0IUAAQIECBAgcBRw9I6YoggQIECAAAECJQFHr7SGLgQIECBAgACBo4Cjd8QURYAAAQIECBAoCTh6pTV0IUCAAAECBAgcBRy9I6YoAgQIECBAgEBJwNErraELAQIECBAgQOAo4OgdMUURIECAAAECBEoCjl5pDV0IECBAgAABA..png?ex=67000520&is=66feb3a0&hm=537d3d4229264e4d4a7c1bdfe157f456012f419e0fc4f634ad6c1b3f25ca0157&" alt="Croissant" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Croissants - $100</p>
+                <button onclick="addToCart('Croissant', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291423378460381235/OE7wAAAABJRU5ErkJggg.png?ex=67000b3e&is=66feb9be&hm=e0147657ef4556146ec2873dc48d7c827bfa7a1812e6991680e9a06aef071784&" alt="Baguette de pain 3" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Baguette de pain - $100</p>
+                <button onclick="addToCart('Baguette de pain', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291423800969265172/3dKzwE9EAo6mICBDoBQdTZWiZAgAABAgROBATRyaOcSYAAAQIECHQCgqiztUyAAAECBAicCAiik0c5kwABAgQIEOgEBFFna5kAAQIECBA4ERBEJ49yJgECBAgQINAJCKLO1jIBAgQIECBwIiCITh7lTAIECBAgQKATEESdrWUCBAgQIEDgREAQnTzKmQQIECBAgEAnIIg6W8sECBAgQIDAiYAgOnmUMwkQIECAAIFOQBB1tpYJECBAgACBEwFBdPIoZxIgQIAAAQKdgCDqbC0TIECAAAECJwKC6ORRziRAgAABAgQ6AUHU2VomQIAAAQIETgQE0cmjnEmAAAECBAh0AoKos7VMgAABAgQInAgIopNHOZMAAQIECBDoBARRZ2uZAAECBAgQOBEQRCePciYBAgQIECDQCQiiztYyAQIECBAgcCIgiE4e5UwCBAgQIECgExBEna1lAgQIECBA4ERAEJ08ypkECBAgQIBAJyCIOlvLBAgQIECAwImAID..png?ex=67000ba3&is=66feba23&hm=742afeac0968ff8c5ee14e9b9e01e2cf06648106e1bd2ec9b291f7f772b856bc&" alt="Éclair au chocolat" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Éclair au chocolat - $100</p>
+                <button onclick="addToCart('Éclair au chocolat', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="URL_DE_L_IMAGE_NUTELLA" alt="Éclair au café" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Éclair au café - $100</p>
+                <button onclick="addToCart('Éclair au café', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291423204472127600/AXQWtiQHnlUNAAAAAElFTkSuQmCC.png?ex=67000b15&is=66feb995&hm=6b1dfc34ae0b2f506501da968760912dded2ab721ee53ec3f50f1bc0a3c97c0b&" alt="Éclair à la vanille" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Éclair à la vanille - $100</p>
+                <button onclick="addToCart('Éclair à la vanille', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291416635919568907/wCkXrhEqWPkpgAAAABJRU5ErkJggg.png?ex=670004f7&is=66feb377&hm=27178e09a623da54b6342e360580ce9365982b849343127178ca2a4774683d4f&" alt="Pain au chocolat" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Pain au chocolat - $100</p>
+                <button onclick="addToCart('Pain au chocolat', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291423899128692736/A8s21Gak8sBAAAAAElFTkSuQmCC.png?ex=67000bbb&is=66feba3b&hm=f8a3325b91fa64c88b97f374c678b989d0a61ead83235dc320728142149302c8&" alt="Tarte aux pommes" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Tarte aux pommes - $100</p>
+                <button onclick="addToCart('Tarte aux pommes', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291424838728286258/S5Vtzbm2ugAAAAASUVORK5CYII.png?ex=67000c9b&is=66febb1b&hm=8f8c8d34b1b22dc6f253c1a621cbe12c05719d9102229496af0f5e5612031dae&" alt="Tarte aux fraises" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Tarte aux fraises - $100</p>
+                <button onclick="addToCart('Tarte aux fraises', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Robes -->
+    <div id="robes" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('robes')">&times;</span>
+            <h2>Pâtisseries</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291432165568938037/Gemini_Generated_Image_xmkfzaxmkfzaxmkf-removebg-preview.png?ex=6700136d&is=66fec1ed&hm=7182c474c73fce4a87ccbd27f04f0148070a594b15e8fa47379ae67908308171&" alt="Robe 1" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Robe 1 - $100</p>
+                <button onclick="addToCart('Robe 1', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291433018182996050/Gemini_Generated_Image_nsxj7nnsxj7nnsxj-removebg-preview.png?ex=67001439&is=66fec2b9&hm=5cea737ad093b6d494fdee9fc39bed46c7f45a2fe8151ada494d941bf6633647&" alt="Robe 2" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Robe 2 - $100</p>
+                <button onclick="addToCart('Robe 2', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291434910606950481/Gemini_Generated_Image_sctb0hsctb0hsctb-removebg-preview.png?ex=670015fc&is=66fec47c&hm=e855e86417fd2ae37a041b3cdc0cba4432472e4460610145bb55f1a038134663&" alt="Robe 3" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Robe 3 - $100</p>
+                <button onclick="addToCart('Robe 3', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bagues -->
+    <div id="bagues" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('bagues')">&times;</span>
+            <h2>Bagues</h2>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291433922567213096/Gemini_Generated_Image_xqho7vxqho7vxqho-removebg-preview.png?ex=67001510&is=66fec390&hm=a047851270549569881d482d4463c4763551f0f3b5615a19bba90f20b2ea5751&" alt="Bague 1" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bague 1 - $100</p>
+                <button onclick="addToCart('Bague 1', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291434144059883540/Gemini_Generated_Image_k8c17bk8c17bk8c1-removebg-preview.png?ex=67001545&is=66fec3c5&hm=b6d4c8fed10c55bc11086afb5c995e1257a79f637657f9a09ff50a00edc84e9a&" alt="Bague 2" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bague 2 - $100</p>
+                <button onclick="addToCart('Bague 2', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291434260548550747/Gemini_Generated_Image_uydtwguydtwguydt-removebg-preview.png?ex=67001561&is=66fec3e1&hm=f717344d739812b3ad447037a06e906578db27d8873ae7cb42703dd7b7755fcb&" alt="Bague Homme 1" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bague Homme 1 - $100</p>
+                <button onclick="addToCart('Bague Homme 1', 100)">Ajouter</button>
+            </div>
+            <div class="submenu-item">
+                <img src="https://cdn.discordapp.com/attachments/1291406934125056031/1291434402106179654/Gemini_Generated_Image_vpn9axvpn9axvpn9-removebg-preview.png?ex=67001583&is=66fec403&hm=e84a0197f19c87a87141db527d1588c37c58fd1d546aced9ecad3c4b1efe7889&" alt="Bague Homme 2" style="width: 50px; height: auto; margin-right: 10px;">
+                <p>Bague Homme 2 - $100</p>
+                <button onclick="addToCart('Bague Homme 2', 100)">Ajouter</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Close the modal when the user clicks anywhere outside of it
+        window.onclick = function(event) {
+            const modals = ['glaces', 'cocktails', 'bouquetsdefleurs', 'boissonschaudes', 'boissonsfroides', 'pâtisseries', 'robes', 'bagues'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    closeModal(modalId);
+                }
+            });
+        }
+    </script>
+</body>
+</html>
