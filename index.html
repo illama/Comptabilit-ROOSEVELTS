@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mon projet avec Google Sheets</title>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script>
+        function initGAPI() {
+            gapi.load("client:auth2", function () {
+                gapi.auth2.init({
+                    client_id: "696964748726-bg5hqrjdjga8qlf2oopuvhibs1q626ja.apps.googleusercontent.com"
+                }).then(function () {
+                    loadClient(); // Charger le client Sheets après l'initialisation de l'authentification
+                });
+            });
+        }
+
+        function loadClient() {
+            gapi.client.setApiKey("AIzaSyCfCcDgZlepALlwinxOdGHO6HWY3WNXvVU");
+            return gapi.client.load("https://sheets.googleapis.com/$discovery/rest?version=v4")
+                .then(function () {
+                    console.log("GAPI client loaded for API");
+                }, function (err) {
+                    console.error("Error loading GAPI client for API", err);
+                });
+        }
+
+        function authenticate() {
+            return gapi.auth2.getAuthInstance()
+                .signIn({ scope: "https://www.googleapis.com/auth/spreadsheets" })
+                .then(function () {
+                    console.log("Sign-in successful");
+                }, function (err) {
+                    console.error("Error signing in", err);
+                });
+        }
+
+        function addToSheet() {
+            const values = [
+                ["Nom", "Prix"],
+                ["Produit A", "200"],
+                ["Produit B", "300"],
+            ];
+
+            const body = { values: values };
+
+            gapi.client.sheets.spreadsheets.values.append({
+                spreadsheetId: '1Y3gHYUl5MVJ7Fy-d3fhHw0aLALQMv5kgI3eF0T4OdJg',
+                range: 'Sheet1!A1',
+                valueInputOption: 'USER_ENTERED',
+                resource: body
+            }).then((response) => {
+                console.log('Données ajoutées à Google Sheets', response);
+            }, (error) => {
+                console.error('Erreur lors de l’ajout à Google Sheets', error);
+            });
+        }
+
+        function exportDataToSheet() {
+            authenticate().then(() => {
+                addToSheet();
+            });
+        }
+
+        window.onload = function () {
+            initGAPI();
+        };
+    </script>
+</head>
+<body>
+    <h1>Mon projet</h1>
+    <button onclick="exportDataToSheet()">Exporter les données vers Google Sheets</button>
+</body>
+</html>
